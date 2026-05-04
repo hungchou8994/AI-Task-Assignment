@@ -1,0 +1,26 @@
+Sprint Planning Meeting — March 10, 2026
+Attendees: Alice, Bob, Carlos, Diana
+
+## Action Items
+
+**Alice** will complete the user authentication flow by Wednesday. She also needs to review
+and merge the pending pull requests from last week before they go stale.
+
+**Bob** is responsible for setting up the CI/CD pipeline for the new microservice. This
+needs to be done before the team can run automated tests in the staging environment.
+
+**Carlos** will write the database migration script for the new notifications table.
+Deadline: end of sprint (Friday).
+
+**Diana** agreed to conduct user interviews with 3 beta testers this week and compile a
+summary of their feedback into the product backlog.
+
+## Decisions
+
+We decided to use PostgreSQL for the notifications table (not Redis) because we want
+ACID guarantees. No action item — this is just a recorded decision.
+
+## Next Steps
+
+All action items should be tracked in the project board. Bob will also send out calendar
+invites for the daily standups starting next Monday.

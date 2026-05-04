@@ -1,0 +1,17 @@
+Alice Chen [10:02 AM]
+hey everyone quick update — the login page is broken on mobile, users are getting a 500 error
+
+Bob Kim [10:04 AM]
+just saw it too, looks like the session cookie handling broke after yesterday's deploy
+
+Alice Chen [10:05 AM]
+@Carlos can you take a look at the cookie bug? should be in auth.py around line 240
+
+Carlos Rivera [10:07 AM]
+on it, will push a fix this morning
+
+Alice Chen [10:08 AM]
+also we need to write regression tests for mobile login so this doesn't happen again
+
+Bob Kim [10:15 AM]
++1, and someone should update the deployment checklist to include mobile smoke tests before we push to prod

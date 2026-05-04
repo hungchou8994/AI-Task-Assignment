@@ -1,0 +1,30 @@
+# AI related files
+.planning/
+.opencode/
+.agents/
+.gstack/
+.worktrees/
+
+__pycache__/
+*.pyc
+*cache/
+
+dist/
+node_modules/
+evals/node_modules/
+evals/.promptfoo/
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+evals/.env
+evals/
+
+# Python caches and test artifacts
+**/__pycache__/
+**/.pytest_cache/
+*.pyo

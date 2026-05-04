@@ -1,0 +1,22 @@
+## Bug: Task filter not persisting across page reload
+
+**Description:** When a user applies filters (status=in_progress, assignee=Alice) and then
+refreshes the page, the filters reset to their default state. The URL does not update when
+filters are applied, making it impossible to share filtered views.
+
+**Steps to reproduce:**
+1. Open the task list
+2. Apply filter: status = "In Progress"
+3. Apply filter: assignee = "Alice"
+4. Refresh the page
+5. Observe: filters reset to "All"
+
+**Acceptance criteria:**
+- [ ] Filter state is encoded in URL query params (?status=in_progress&assignee=alice-uuid)
+- [ ] Navigating to a URL with query params restores filter state on load
+- [ ] A "Copy shareable link" button appears when any filter is active
+- [ ] Browser back/forward updates the active filters correctly
+
+**Additional context:**
+The filter state lives in App.tsx useState. Moving to URL params requires replacing useState
+with useSearchParams from React Router or a similar solution.

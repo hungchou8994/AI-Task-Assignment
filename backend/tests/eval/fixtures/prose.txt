@@ -1,0 +1,21 @@
+Subject: Q2 Planning Update
+
+Hi team,
+
+After our planning session yesterday, here's what we need to move on:
+
+The product roadmap needs to be finalized by end of week. Sarah mentioned the design mockups
+for the new dashboard are still outstanding and should be completed before the engineering
+handoff meeting on Thursday. We also need to update the API documentation to reflect the
+changes we shipped last sprint — several endpoints changed and the docs are out of date.
+
+On the infrastructure side, the database backup job has been running inconsistently and
+Jonas confirmed we need to fix the backup cron job before the end of the month. Additionally,
+the staging environment SSL certificate expires next Tuesday, so someone needs to renew it
+urgently.
+
+Finally, we've been discussing adding error monitoring (Sentry or similar) to production.
+This isn't urgent but we should get it set up before the next major release.
+
+Thanks,
+Alex
