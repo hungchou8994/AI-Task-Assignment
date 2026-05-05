@@ -3,8 +3,9 @@
 Usage (from project root):
     docker compose exec api python scripts/seed.py
 
-Demo login:
-    demo@example.com / password123
+Demo logins:
+    demo@example.com / password123   (workspace owner)
+    member@example.com / password123  (workspace member)
 """
 
 import sys
@@ -27,6 +28,7 @@ from app.models import (  # noqa: E402
     TaskActivityAction,
     TaskActivityEvent,
     TaskCandidate,
+    TaskComment,
     TaskPriority,
     TaskStatus,
     User,
@@ -41,6 +43,11 @@ def d(days_from_now: int) -> date:
 
 def updated_at(days_ago: int) -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=days_ago)
+
+
+def ago(days: int = 0, hours: int = 0) -> datetime:
+    """Return a timezone-aware datetime N days and H hours in the past."""
+    return datetime.now(timezone.utc) - timedelta(days=days, hours=hours)
 
 
 WORKSPACE_SPEC = {
@@ -396,9 +403,78 @@ CANDIDATES_SPEC = [
 ]
 
 
+# Each entry creates one TaskComment.
+# author: "demo" → demo@example.com (owner), "member" → member@example.com (member)
+# edited=True → sets edited_at so the "Edited" badge appears in the UI.
+COMMENTS_SPEC = [
+    # ----- Add virtualized rendering to the task table -----
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="demo",
+        body="I've been looking at the react-window library for this. It handles large lists efficiently and shouldn't break keyboard navigation.",
+        created_days_ago=3,
+    ),
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="member",
+        body="Agreed — react-window is the right call. The FixedSizeList API is clean. Watch out: row height must be consistent or we'll need VariableSizeList, which complicates things.",
+        created_days_ago=2,
+        created_hours_ago=6,
+    ),
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="demo",
+        body="Good point. Locking row height at 56px for now and will revisit if variable heights are needed. Updated the PR description to reflect this decision.",
+        created_days_ago=2,
+        created_hours_ago=4,
+        edited=True,
+        edited_days_ago=1,
+    ),
+    # ----- Implement pagination for GET /api/tasks -----
+    dict(
+        task_title="Implement pagination for GET /api/tasks",
+        author="member",
+        body="Should we use cursor-based or offset-based pagination? Cursor is more robust for live data but offset is simpler to implement and test initially.",
+        created_days_ago=4,
+    ),
+    dict(
+        task_title="Implement pagination for GET /api/tasks",
+        author="demo",
+        body="Going with offset for v1 — simpler to implement and the data set is bounded. Added limit/offset params with total_count in the response envelope. Can migrate to cursor later.",
+        created_days_ago=3,
+        created_hours_ago=8,
+    ),
+    # ----- Investigate P99 latency regression on task search -----
+    dict(
+        task_title="Investigate P99 latency regression on task search",
+        author="demo",
+        body="Initial finding: the query plan regressed after the assignee join was added in the last release. The planner is choosing a seq scan on tasks instead of using the status index.",
+        created_days_ago=1,
+        created_hours_ago=4,
+    ),
+    dict(
+        task_title="Investigate P99 latency regression on task search",
+        author="member",
+        body="Can you share the EXPLAIN ANALYZE output? Also worth checking if autovacuum ran recently — stale statistics can explain plan regressions after a bulk data change.",
+        created_days_ago=0,
+        created_hours_ago=6,
+        edited=True,
+        edited_hours_ago=5,
+    ),
+    # ----- Review customer data retention commitments -----
+    dict(
+        task_title="Review customer data retention commitments",
+        author="demo",
+        body="Reviewed the pilot contract. The 90-day window covers source excerpts but is silent on candidate revisions and audit events. Flagged for legal review before sign-off.",
+        created_days_ago=2,
+    ),
+]
+
+
 def _clear_existing(db) -> None:
     print("Deleting existing data...")
     for model, label in [
+        (TaskComment, "task comments"),
         (TaskActivityEvent, "task activity events"),
         (FeedbackEvent, "feedback events"),
         (TaskCandidate, "task candidates"),
@@ -416,10 +492,14 @@ def _clear_existing(db) -> None:
     db.commit()
 
 
-def _seed_user_and_org(db) -> tuple[User, Organization]:
-    print("\nInserting demo user and organization...")
+def _seed_user_and_org(db) -> tuple[User, User, Organization]:
+    print("\nInserting demo users and organization...")
     user = User(email="demo@example.com", hashed_password=hash_password("password123"))
     db.add(user)
+    db.flush()
+
+    member = User(email="member@example.com", hashed_password=hash_password("password123"))
+    db.add(member)
     db.flush()
 
     org = Organization(
@@ -430,10 +510,11 @@ def _seed_user_and_org(db) -> tuple[User, Organization]:
     db.add(org)
     db.flush()
     db.add(OrgMembership(org_id=org.id, user_id=user.id, role="owner"))
-    return user, org
+    db.add(OrgMembership(org_id=org.id, user_id=member.id, role="member"))
+    return user, member, org
 
 
-def _seed_workspace_and_projects(db, user: User, org: Organization) -> tuple[Workspace, dict[str, Project]]:
+def _seed_workspace_and_projects(db, user: User, member: User, org: Organization) -> tuple[Workspace, dict[str, Project]]:
     print("\nInserting workspace and projects...")
     workspace = Workspace(
         name=WORKSPACE_SPEC["name"],
@@ -444,6 +525,7 @@ def _seed_workspace_and_projects(db, user: User, org: Organization) -> tuple[Wor
     db.add(workspace)
     db.flush()
     db.add(WorkspaceMembership(workspace_id=workspace.id, user_id=user.id, role="owner"))
+    db.add(WorkspaceMembership(workspace_id=workspace.id, user_id=member.id, role="member"))
 
     key_to_project: dict[str, Project] = {}
     for spec in WORKSPACE_SPEC["projects"]:
@@ -472,8 +554,9 @@ def _seed_people(db) -> dict[str, Person]:
     return name_to_person
 
 
-def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> None:
+def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> dict[str, Task]:
     print("\nInserting tasks...")
+    title_to_task: dict[str, Task] = {}
     for spec in TASKS_SPEC:
         assignee_name = spec.get("assignee_name")
         task = Task(
@@ -488,6 +571,7 @@ def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str
         )
         db.add(task)
         db.flush()
+        title_to_task[spec["title"]] = task
 
         db.add(
             TaskActivityEvent(
@@ -506,6 +590,8 @@ def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str
             task.updated_at = updated_at(days_ago)
 
         print(f"  + [{spec['status'].value:11s}] {task.title[:70]}")
+
+    return title_to_task
 
 
 def _seed_candidates(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> None:
@@ -541,24 +627,71 @@ def _seed_candidates(db, key_to_project: dict[str, Project], name_to_person: dic
         print(f"  + [pending    ] {candidate.title[:70]}")
 
 
+def _seed_comments(
+    db,
+    title_to_task: dict[str, Task],
+    demo_user: User,
+    member_user: User,
+) -> int:
+    print("\nInserting task comments...")
+    author_map = {"demo": demo_user, "member": member_user}
+    count = 0
+    for spec in COMMENTS_SPEC:
+        task = title_to_task.get(spec["task_title"])
+        if task is None:
+            print(f"  ! Task not found: {spec['task_title'][:60]} — skipping")
+            continue
+
+        author = author_map[spec["author"]]
+        created = ago(
+            days=spec.get("created_days_ago", 0),
+            hours=spec.get("created_hours_ago", 0),
+        )
+        edited: datetime | None = None
+        if spec.get("edited"):
+            edited = ago(
+                days=spec.get("edited_days_ago", 0),
+                hours=spec.get("edited_hours_ago", 0),
+            )
+
+        comment = TaskComment(
+            task_id=task.id,
+            author_id=author.id,
+            body=spec["body"],
+            edited_at=edited,
+            created_at=created,
+            updated_at=edited or created,
+        )
+        db.add(comment)
+        count += 1
+
+        edited_label = " [edited]" if edited else ""
+        print(f"  + {author.email:<34} on '{task.title[:40]}...'{edited_label}")
+
+    return count
+
+
 def seed() -> None:
     db = SessionLocal()
     try:
         _clear_existing(db)
-        user, org = _seed_user_and_org(db)
-        _workspace, key_to_project = _seed_workspace_and_projects(db, user, org)
+        user, member, org = _seed_user_and_org(db)
+        _workspace, key_to_project = _seed_workspace_and_projects(db, user, member, org)
         name_to_person = _seed_people(db)
-        _seed_tasks(db, key_to_project, name_to_person)
+        title_to_task = _seed_tasks(db, key_to_project, name_to_person)
         _seed_candidates(db, key_to_project, name_to_person)
+        comment_count = _seed_comments(db, title_to_task, user, member)
 
         db.commit()
         print(
             "\nDone. "
             f"1 workspace, {len(WORKSPACE_SPEC['projects'])} projects, "
             f"{len(PEOPLE)} people, {len(TASKS_SPEC)} tasks, "
-            f"{len(CANDIDATES_SPEC)} task candidates inserted."
+            f"{len(CANDIDATES_SPEC)} task candidates, "
+            f"{comment_count} comments inserted."
         )
-        print("Login with demo@example.com / password123")
+        print("Login with demo@example.com / password123  (workspace owner)")
+        print("       or member@example.com / password123  (workspace member)")
     except Exception:
         db.rollback()
         raise
