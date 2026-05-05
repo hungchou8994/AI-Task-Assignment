@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 from typing import Optional, List, Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from app.models import (
     TaskStatus,
@@ -312,6 +312,48 @@ class TaskActivityEventResponse(_BaseResponse):
     actor_id: Optional[UUID]
     occurred_at: datetime
     created_at: datetime
+
+
+# ─── Task Comments ─────────────────────────────────────────────────────────────
+
+class TaskCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def strip_and_reject_whitespace(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("body must not be empty or whitespace-only")
+        return stripped
+
+
+class TaskCommentUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def strip_and_reject_whitespace(cls, v: str) -> str:
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("body must not be empty or whitespace-only")
+        return stripped
+
+
+class TaskCommentResponse(_BaseResponse):
+    id: UUID
+    task_id: UUID
+    author_id: Optional[UUID]
+    author_email: str
+    body: str
+    is_edited: bool
+    created_at: datetime
+    edited_at: Optional[datetime]
+
+    @model_validator(mode="after")
+    def compute_is_edited(self) -> "TaskCommentResponse":
+        object.__setattr__(self, "is_edited", self.edited_at is not None)
+        return self
 
 
 class PersonCreate(BaseModel):
