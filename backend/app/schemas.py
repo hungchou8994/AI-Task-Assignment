@@ -700,3 +700,7 @@ class WebhookDeliveryResponse(_BaseResponse):
     status: str
     response_code: Optional[int]
     attempted_at: datetime
+
+
+class WorkspaceMyRoleResponse(_BaseResponse):
+    role: str

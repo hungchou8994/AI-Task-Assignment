@@ -16,6 +16,7 @@ import {
 } from '@/lib/taskFormatters';
 import type { Task, TaskStatus, TaskPriority, TaskUpdate } from '@/types';
 import { AssigneePicker } from './AssigneePicker';
+import { TaskComments } from './TaskComments';
 
 interface TaskModalProps {
   task: Task;
@@ -368,6 +369,8 @@ export function TaskModal({ task, people, onClose }: TaskModalProps) {
                   </div>
                 )}
               </section>
+
+          <TaskComments taskId={task.id} />
         </div>
 
         {/* Footer */}
