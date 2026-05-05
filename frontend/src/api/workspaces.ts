@@ -19,3 +19,6 @@ export async function createProject(
 ): Promise<Project> {
   return api.post<Project>(`/api/workspaces/${workspaceId}/projects`, data);
 }
+
+export const fetchMyWorkspaceRole = (workspaceId: string) =>
+  api.get<{ role: string }>(`/api/workspaces/${workspaceId}/my-role`);

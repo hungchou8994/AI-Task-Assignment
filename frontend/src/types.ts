@@ -80,6 +80,17 @@ export interface Task {
   sources?: Source[];
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id: string | null;
+  author_email: string;
+  body: string;
+  is_edited: boolean;
+  created_at: string;
+  edited_at: string | null;
+}
+
 export interface TaskActivityEvent {
   id: string;
   task_id: string;
