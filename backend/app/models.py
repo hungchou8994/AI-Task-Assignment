@@ -227,6 +227,7 @@ class Person(Base):
         Enum(AvailabilityStatus, name="availabilitystatus", create_type=False),
         nullable=True,
     )
+    max_capacity = Column(Integer, nullable=False, default=8, server_default="8")
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

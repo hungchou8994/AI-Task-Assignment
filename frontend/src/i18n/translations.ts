@@ -709,6 +709,7 @@ export const translations = {
       availabilityAvailable: "Available",
       availabilityBusy: "Busy",
       availabilityOnLeave: "On Leave",
+      maxCapacity: "Max Capacity",
     },
     // AI Analysis page
     aiAnalysis: {
@@ -1493,6 +1494,7 @@ export const translations = {
       availabilityAvailable: "対応可能",
       availabilityBusy: "多忙",
       availabilityOnLeave: "休暇中",
+      maxCapacity: "最大タスク数",
     },
     // AI Analysis page
     aiAnalysis: {

@@ -115,6 +115,7 @@ export interface Person {
   skills: string[] | null;
   bio: string | null;
   availability: AvailabilityStatus | null;
+  max_capacity: number;
   created_at: string;
 }
 
@@ -149,6 +150,7 @@ export interface PersonCreate {
   skills?: string[] | null;
   bio?: string | null;
   availability?: AvailabilityStatus | null;
+  max_capacity?: number;
 }
 
 export interface PersonUpdate {
@@ -158,6 +160,7 @@ export interface PersonUpdate {
   skills?: string[] | null;
   bio?: string | null;
   availability?: AvailabilityStatus | null;
+  max_capacity?: number;
 }
 
 export type TaskCandidateStatus = 'pending' | 'approved' | 'rejected';

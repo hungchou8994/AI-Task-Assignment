@@ -363,6 +363,7 @@ class PersonCreate(BaseModel):
     skills: Optional[List[str]] = None
     bio: Optional[str] = None
     availability: Optional[AvailabilityStatus] = None
+    max_capacity: int = Field(default=8, ge=1, le=100)
 
 
 class PersonUpdate(BaseModel):
@@ -372,6 +373,7 @@ class PersonUpdate(BaseModel):
     skills: Optional[List[str]] = None
     bio: Optional[str] = None
     availability: Optional[AvailabilityStatus] = None
+    max_capacity: Optional[int] = Field(default=None, ge=1, le=100)
 
 
 class PersonResponse(_BaseResponse):
@@ -382,6 +384,7 @@ class PersonResponse(_BaseResponse):
     skills: Optional[List[str]]
     bio: Optional[str]
     availability: Optional[AvailabilityStatus]
+    max_capacity: int
     created_at: datetime
 
 

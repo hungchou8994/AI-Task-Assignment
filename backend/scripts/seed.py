@@ -81,6 +81,7 @@ PEOPLE = [
         skills=["React", "TypeScript", "Design Systems", "Accessibility", "Playwright"],
         bio="Owns the React application shell, component quality, and accessibility standards for customer-facing workflows.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Ethan Brooks",
@@ -89,6 +90,7 @@ PEOPLE = [
         skills=["Python", "FastAPI", "PostgreSQL", "SQLAlchemy", "API Design"],
         bio="Builds reliable APIs, schema migrations, and data integrity checks for the task management platform.",
         availability=AvailabilityStatus.available,
+        max_capacity=10,
     ),
     dict(
         name="Priya Raman",
@@ -97,6 +99,7 @@ PEOPLE = [
         skills=["Roadmapping", "Customer Discovery", "Jira", "SQL", "Prioritization"],
         bio="Coordinates product scope, customer feedback, and weekly release planning across engineering and operations.",
         availability=AvailabilityStatus.busy,
+        max_capacity=15,
     ),
     dict(
         name="Noah Williams",
@@ -105,6 +108,7 @@ PEOPLE = [
         skills=["Docker", "AWS", "Terraform", "CI/CD", "Observability"],
         bio="Maintains deployment pipelines, staging infrastructure, alerts, and production readiness reviews.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Sofia Martinez",
@@ -113,6 +117,7 @@ PEOPLE = [
         skills=["Figma", "Prototyping", "User Research", "Information Architecture", "UX Writing"],
         bio="Designs task review flows, empty states, and onboarding experiences based on customer research.",
         availability=AvailabilityStatus.available,
+        max_capacity=6,
     ),
     dict(
         name="Liam Patel",
@@ -121,6 +126,7 @@ PEOPLE = [
         skills=["SQL", "Python", "Tableau", "dbt", "Product Analytics"],
         bio="Builds dashboards for activation, review throughput, AI quality, and operational SLA tracking.",
         availability=AvailabilityStatus.available,
+        max_capacity=10,
     ),
     dict(
         name="Grace Kim",
@@ -129,6 +135,7 @@ PEOPLE = [
         skills=["Playwright", "Test Planning", "API Testing", "Regression Testing", "Bug Triage"],
         bio="Owns release test plans, regression coverage, and quality gates for the pilot launch.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Jordan Lee",
@@ -137,6 +144,7 @@ PEOPLE = [
         skills=["Onboarding", "Training", "Customer Feedback", "Documentation", "Escalation Management"],
         bio="Runs customer onboarding, collects pilot feedback, and coordinates follow-up actions with product teams.",
         availability=AvailabilityStatus.busy,
+        max_capacity=12,
     ),
     dict(
         name="Avery Stone",
@@ -145,6 +153,7 @@ PEOPLE = [
         skills=["Threat Modeling", "Audit Logging", "SOC 2", "Secrets Management", "Access Control"],
         bio="Reviews security controls, data retention policies, and customer-facing compliance commitments.",
         availability=AvailabilityStatus.available,
+        max_capacity=6,
     ),
     dict(
         name="Olivia Reed",
@@ -153,6 +162,7 @@ PEOPLE = [
         skills=["Developer Docs", "Release Notes", "API Documentation", "Information Design", "Editing"],
         bio="Creates migration guides, launch notes, and clear product documentation for internal and customer users.",
         availability=AvailabilityStatus.on_leave,
+        max_capacity=5,
     ),
 ]
 
