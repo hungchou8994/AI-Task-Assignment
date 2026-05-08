@@ -133,8 +133,11 @@ async def run_extraction_job(job_id: str, command: ExtractTasksCommand) -> None:
                     f"{last_error} (circuit open until {opened_until.isoformat()}; "
                     f"consecutive_failures={fail_count})"
                 )
-            logger.exception(
-                "Extraction job %s failed permanently: %s", job_id, last_error
+            logger.error(
+                "Extraction job %s failed permanently: %s",
+                job_id,
+                last_error,
+                exc_info=(type(last_exc), last_exc, last_exc.__traceback__),
             )
             update_job(job_id, "failed", error=last_error)
     except Exception as exc:  # noqa: BLE001

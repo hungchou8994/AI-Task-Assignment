@@ -41,8 +41,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
   // Permission helpers
   const canEdit = (comment: TaskComment) => comment.author_id === user?.id;
-  const canDelete = (comment: TaskComment) =>
-    comment.author_id === user?.id || ['admin', 'owner'].includes(workspaceRole ?? '');
+  const canDelete = () => ['admin', 'owner'].includes(workspaceRole ?? '');
 
   // Handlers
   const handleSubmit = async () => {
@@ -149,7 +148,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                       {t.comments.edit}
                     </button>
                   )}
-                  {canDelete(comment) && confirmDeleteId !== comment.id && (
+                  {canDelete() && confirmDeleteId !== comment.id && (
                     <button
                       onClick={() => setConfirmDeleteId(comment.id)}
                       className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
@@ -157,7 +156,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
                       {t.comments.delete}
                     </button>
                   )}
-                  {confirmDeleteId === comment.id && (
+                  {canDelete() && confirmDeleteId === comment.id && (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-muted-foreground">{t.comments.confirmDelete}</span>
                       <button

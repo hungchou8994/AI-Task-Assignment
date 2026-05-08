@@ -50,6 +50,15 @@ class DirectClient(BaseDirectClient):
                         current_user=self.current_user,
                     )
                 )
+            if path.startswith("/api/workspaces/") and path.endswith("/members"):
+                workspace_id = uuid.UUID(path.split("/")[3])
+                return self._ok(
+                    workspaces.list_workspace_members(
+                        workspace_id=workspace_id,
+                        db=self.db,
+                        current_user=self.current_user,
+                    )
+                )
             if path == "/api/people":
                 return self._ok(
                     people.list_people(db=self.db, current_user=self.current_user)
@@ -128,6 +137,17 @@ class DirectClient(BaseDirectClient):
                     workspaces.create_project(
                         workspace_id=workspace_id,
                         payload=workspaces.ProjectCreate(**(json or {})),
+                        db=self.db,
+                        current_user=self.current_user,
+                    ),
+                    201,
+                )
+            if path.startswith("/api/workspaces/") and path.endswith("/members"):
+                workspace_id = uuid.UUID(path.split("/")[3])
+                return self._ok(
+                    workspaces.add_workspace_member(
+                        workspace_id=workspace_id,
+                        payload=workspaces.WorkspaceMemberCreate(**(json or {})),
                         db=self.db,
                         current_user=self.current_user,
                     ),

@@ -162,6 +162,19 @@ class WorkspaceMembershipResponse(_BaseResponse):
     created_at: datetime
 
 
+class WorkspaceMemberCreate(BaseModel):
+    email: str
+    role: Literal["admin", "member"] = "member"
+
+
+class WorkspaceMemberResponse(_BaseResponse):
+    workspace_id: UUID
+    user_id: UUID
+    email: str
+    role: str
+    created_at: datetime
+
+
 # ─── Service Identity Schemas ──────────────────────────────────────────────────
 
 

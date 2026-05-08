@@ -30,8 +30,26 @@ class GeminiModel:
     Implements the ``Model`` protocol defined in ``agent.model``.
     """
 
-    def __init__(self, *, api_key: str, model: str = "gemini-2.5-flash-lite") -> None:
-        self._client = genai.Client(api_key=api_key)
+    def __init__(
+        self,
+        *,
+        api_key: str = "",
+        model: str = "gemini-2.5-flash-lite",
+        vertexai: bool = False,
+        project: str | None = None,
+        location: str | None = None,
+    ) -> None:
+        if vertexai:
+            if api_key:
+                self._client = genai.Client(vertexai=True, api_key=api_key)
+            else:
+                self._client = genai.Client(
+                    vertexai=True,
+                    project=project,
+                    location=location,
+                )
+        else:
+            self._client = genai.Client(api_key=api_key)
         self._model = model
 
     async def generate(
@@ -139,12 +157,15 @@ class GeminiModel:
                 break
 
             if isinstance(item, Exception):
+                error_message = f"Gemini API error: {item}"
+                logger.warning(error_message)
                 # Surface as an error ModelResponse
                 yield ModelStreamEvent(
                     kind=StreamEventKind.FINISH,
                     response=ModelResponse(
-                        content="",
+                        content=error_message,
                         stop_reason=StopReason.ERROR,
+                        raw=item,
                     ),
                 )
                 return

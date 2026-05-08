@@ -69,7 +69,7 @@ export function TaskModal({ task, people, onClose }: TaskModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-background border border-border w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-background border border-border w-full max-w-3xl overflow-hidden flex flex-col max-h-[94vh]">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex-1 pr-4">
