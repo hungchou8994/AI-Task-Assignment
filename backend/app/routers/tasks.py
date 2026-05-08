@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.auth import ensure_project_access, ensure_task_access, get_current_user
@@ -249,23 +249,24 @@ def list_tasks(
     ),
     current_user: User = Depends(get_current_user),
 ):
+    # Use EXISTS subqueries for the access check instead of outer-joins so that
+    # the per-task result set is never fanned out by the number of membership
+    # rows.  The previous join approach produced N_wm × N_om duplicate rows for
+    # every task in a workspace, causing the frontend to see e.g. 189 results
+    # when only 9 unique tasks existed.
     stmt = (
         select(Task)
         .join(Project, Project.id == Task.project_id)
         .join(Workspace, Workspace.id == Project.workspace_id)
-        .outerjoin(
-            WorkspaceMembership,
-            WorkspaceMembership.workspace_id == Workspace.id,
-        )
-        .outerjoin(
-            OrgMembership,
-            OrgMembership.org_id == Workspace.org_id,
-        )
         .where(
             (Workspace.owner_id == current_user.id)
-            | (WorkspaceMembership.user_id == current_user.id)
-            | (
-                (OrgMembership.user_id == current_user.id)
+            | exists().where(
+                (WorkspaceMembership.workspace_id == Workspace.id)
+                & (WorkspaceMembership.user_id == current_user.id)
+            )
+            | exists().where(
+                (OrgMembership.org_id == Workspace.org_id)
+                & (OrgMembership.user_id == current_user.id)
                 & (OrgMembership.role.in_(["owner", "admin"]))
             )
         )
