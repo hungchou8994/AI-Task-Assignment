@@ -45,21 +45,30 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, authLoading]);
 
-  // Initialize from localStorage and validate on mount
+  // Initialize from localStorage and validate on mount.
+  // Also handles stale workspace/project UUIDs (e.g. after a DB reseed).
   useEffect(() => {
     if (!user) return;
     if (workspacesLoading) return;
+    if (!workspaces || workspaces.length === 0) return;
 
     const storedProjectId = localStorage.getItem(STORAGE_KEY);
 
-    if (!workspaces || workspaces.length === 0) return;
+    // If the current workspace ID is stale (not in the workspaces list),
+    // reset it so the auto-select below can pick a valid workspace.
+    if (currentWorkspaceId && !workspaces.some((w) => w.id === currentWorkspaceId)) {
+      setCurrentWorkspaceId(null);
+      setCurrentProjectId(null);
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
 
-    if (currentWorkspaceId && projectsLoading) return;
-
-    if (!currentWorkspaceId && workspaces.length > 0) {
+    if (!currentWorkspaceId) {
       setCurrentWorkspaceId(workspaces[0].id);
       return;
     }
+
+    if (projectsLoading) return;
 
     if (projects && projects.length > 0) {
       if (storedProjectId && projects.some((p) => p.id === storedProjectId)) {
