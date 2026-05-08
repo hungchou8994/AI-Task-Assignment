@@ -27,6 +27,8 @@ from datetime import date, datetime, timedelta, timezone
 # Ensure the app package is importable when run inside the container.
 sys.path.insert(0, "/app")
 
+from sqlalchemy import text  # noqa: E402
+
 from app.auth_utils import hash_password  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.models import (  # noqa: E402
@@ -579,27 +581,49 @@ COMMENTS_SPEC = [
 ]
 
 
+_ALL_TABLES = [
+    "task_comments",
+    "candidate_approval_events",
+    "candidate_source_spans",
+    "task_candidate_revisions",
+    "task_sources",
+    "sources",
+    "webhook_deliveries",
+    "webhook_subscriptions",
+    "service_identities",
+    "feature_entitlements",
+    "task_dependencies",
+    "task_labels",
+    "labels",
+    "task_estimates",
+    "task_status_history",
+    "task_activity_events",
+    "memory_audit_events",
+    "feedback_events",
+    "task_candidates",
+    "tasks",
+    "projects",
+    "workspace_memberships",
+    "workspaces",
+    "org_memberships",
+    "organizations",
+    "people",
+    "users",
+]
+
+
 def _clear_existing(db) -> None:
-    print("Deleting existing data...")
-    for model, label in [
-        (TaskComment, "task comments"),
-        (TaskActivityEvent, "task activity events"),
-        (FeedbackEvent, "feedback events"),
-        (TaskCandidate, "task candidates"),
-        (Task, "tasks"),
-        (Project, "projects"),
-        (WorkspaceMembership, "workspace memberships"),
-        (Workspace, "workspaces"),
-        (OrgMembership, "organization memberships"),
-        (User, "users"),
-        (Organization, "organizations"),
-        (Person, "people"),
-    ]:
-        # synchronize_session=False skips in-memory session sync which can
-        # silently skip rows when the session holds pending objects.
-        count = db.query(model).delete(synchronize_session=False)
-        print(f"  Deleted {count} {label}.")
+    """Drop all user data atomically using TRUNCATE … CASCADE.
+
+    TRUNCATE bypasses per-row FK resolution that can cause ORM bulk-delete to
+    stall or skip rows when cascade chains cross tables not in the delete list.
+    RESTART IDENTITY resets all sequences so UUIDs don't carry over.
+    """
+    table_list = ", ".join(_ALL_TABLES)
+    print(f"Truncating {len(_ALL_TABLES)} tables...")
+    db.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
     db.commit()
+    print("  Done.")
 
 
 def _seed_users_and_org(db) -> tuple[User, dict[str, User], Organization]:

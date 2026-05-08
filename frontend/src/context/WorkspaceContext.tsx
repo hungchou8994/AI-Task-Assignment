@@ -18,6 +18,7 @@ interface WorkspaceContextType {
   currentProjectId: string | null;
   currentWorkspace: Workspace | null;
   currentProject: Project | null;
+  workspaces: Workspace[] | undefined;
   workspacesLoading: boolean;
   workspacesError: boolean;
   selectWorkspace: (id: string) => void;
@@ -100,6 +101,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         currentProjectId,
         currentWorkspace,
         currentProject,
+        workspaces,
         workspacesLoading,
         workspacesError,
         selectWorkspace,

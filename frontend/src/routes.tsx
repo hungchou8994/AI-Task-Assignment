@@ -47,19 +47,34 @@ function WorkspaceRootRedirect() {
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  const { currentWorkspaceId, selectWorkspace } = useWorkspaceContext();
+  const { currentWorkspaceId, workspaces, workspacesLoading, selectWorkspace } = useWorkspaceContext();
   const isDemoRoute = workspaceId === 'demo';
 
-  // When the URL workspaceId changes (e.g. user navigates via bookmark), sync context.
+  // When the URL workspaceId changes (e.g. user navigates via bookmark), sync
+  // context — but only after workspaces have loaded so we can validate the UUID.
+  // If the UUID is stale (not in the loaded list) we navigate to root and let
+  // WorkspaceRootRedirect pick the correct workspace instead of calling
+  // selectWorkspace with a bad ID (which causes an infinite reset loop).
   useEffect(() => {
-    if (isDemoRoute) {
-      return;
-    }
+    if (isDemoRoute) return;
+    if (workspacesLoading) return;                   // wait until the list is ready
+    if (!workspaceId) return;
 
-    if (workspaceId && workspaceId !== currentWorkspaceId) {
+    const isKnown = workspaces?.some((w) => w.id === workspaceId) ?? false;
+    if (!isKnown) return;                            // stale — context or router will redirect
+
+    if (workspaceId !== currentWorkspaceId) {
       selectWorkspace(workspaceId);
     }
-  }, [workspaceId, currentWorkspaceId, selectWorkspace, isDemoRoute]);
+  }, [workspaceId, currentWorkspaceId, workspaces, workspacesLoading, selectWorkspace, isDemoRoute]);
+
+  // If the URL carries a stale UUID and workspaces are done loading, redirect
+  // to root so WorkspaceRootRedirect can forward to the real workspace.
+  const workspacesReady = !isDemoRoute && !workspacesLoading && workspaces !== undefined;
+  const urlIsStale = workspacesReady && !!workspaceId && !workspaces!.some((w) => w.id === workspaceId);
+  if (urlIsStale) {
+    return <Navigate to="/" replace />;
+  }
 
   if (!isDemoRoute && loading) {
     return <div className="flex items-center justify-center min-h-screen text-sm text-muted-foreground">Loading...</div>;
