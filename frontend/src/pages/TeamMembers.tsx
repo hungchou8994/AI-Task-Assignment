@@ -16,29 +16,56 @@ import {
 import { cn } from '@/lib/utils';
 import { usePeople, useCreatePerson, useUpdatePerson, useDeletePerson } from '../hooks/usePeople';
 import { useTasks } from '../hooks/useTasks';
+import { useAddWorkspaceMember, useWorkspaceMembers } from '../hooks/useWorkspaces';
 import { useProjectContext } from '../context/ProjectContext';
-import type { Person, AvailabilityStatus, PersonUpdate } from '../types';
+import type { Person, AvailabilityStatus, PersonUpdate, WorkspacePermissionRole } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
+
+type AssignableWorkspaceRole = Extract<WorkspacePermissionRole, 'admin' | 'member'>;
 
 // ─── Add Person Modal ─────────────────────────────────────────────────────────
 
-function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typeof useLanguage>['t'] }) {
+function AddPersonModal({
+  currentWorkspaceId,
+  onClose,
+  t,
+}: {
+  currentWorkspaceId: string | null;
+  onClose: () => void;
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
   const createPerson = useCreatePerson();
+  const addWorkspaceMember = useAddWorkspaceMember(currentWorkspaceId);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
+  const [workspaceRole, setWorkspaceRole] = useState<AssignableWorkspaceRole>('member');
   const [bio, setBio] = useState('');
   const [skills, setSkills] = useState('');
   const [availability, setAvailability] = useState<AvailabilityStatus | ''>('');
   const [maxCapacity, setMaxCapacity] = useState(8);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    createPerson.mutate(
-      {
+    setError(null);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    try {
+      if (currentWorkspaceId && normalizedEmail) {
+        try {
+          await addWorkspaceMember.mutateAsync({ email: normalizedEmail, role: workspaceRole });
+        } catch (err) {
+          if (!(err instanceof Error) || !err.message.startsWith('409:')) {
+            throw err;
+          }
+        }
+      }
+
+      await createPerson.mutateAsync({
         name: name.trim(),
-        email: email.trim() || null,
+        email: normalizedEmail || null,
         role: role.trim() || null,
         bio: bio.trim() || null,
         skills: skills
@@ -47,9 +74,12 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
           .filter(Boolean),
         availability: (availability as AvailabilityStatus) || null,
         max_capacity: maxCapacity,
-      },
-      { onSuccess: onClose },
-    );
+      });
+
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.teamMembers.addMemberFailed);
+    }
   }
 
   return (
@@ -105,6 +135,24 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
+                  {t.teamMembers.workspaceRole}
+                </label>
+                <select
+                  value={workspaceRole}
+                  onChange={(e) => setWorkspaceRole(e.target.value as AssignableWorkspaceRole)}
+                  className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="member">{t.teamMembers.workspaceRoleMember}</option>
+                  <option value="admin">{t.teamMembers.workspaceRoleAdmin}</option>
+                </select>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {t.teamMembers.workspaceRoleHelp}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
                   {t.teamMembers.availability}
                 </label>
                 <select
@@ -116,21 +164,21 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
                   <option value="available">{t.teamMembers.availabilityAvailable}</option>
                   <option value="busy">{t.teamMembers.availabilityBusy}</option>
                   <option value="on_leave">{t.teamMembers.availabilityOnLeave}</option>
-                </select>
+                  </select>
+                </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
+                  {t.teamMembers.maxCapacity}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={maxCapacity}
+                  onChange={(e) => setMaxCapacity(Math.max(1, Math.min(100, Number(e.target.value))))}
+                  className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                />
               </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
-                {t.teamMembers.maxCapacity}
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={maxCapacity}
-                onChange={(e) => setMaxCapacity(Math.max(1, Math.min(100, Number(e.target.value))))}
-                className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-              />
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
@@ -154,6 +202,7 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
                 className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none"
               />
             </div>
+            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
           </div>
           <div className="flex justify-end gap-3 px-6 py-4 border-t border-border">
             <button
@@ -165,10 +214,10 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
             </button>
             <button
               type="submit"
-              disabled={createPerson.isPending}
+              disabled={createPerson.isPending || addWorkspaceMember.isPending}
               className="px-4 py-2 bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {createPerson.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {(createPerson.isPending || addWorkspaceMember.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
               {t.teamMembers.addMember}
             </button>
           </div>
@@ -421,12 +470,14 @@ const MemberCard = ({
   onEdit,
   openTaskCount,
   level,
+  workspaceRole,
   t,
 }: {
   person: Person;
   onEdit: (p: Person) => void;
   openTaskCount: number;
   level: LoadLevel;
+  workspaceRole: WorkspacePermissionRole | null;
   t: ReturnType<typeof useLanguage>['t'];
   key?: React.Key;
 }) => {
@@ -482,6 +533,9 @@ const MemberCard = ({
       <div>
         <h3 className="text-sm font-bold text-foreground">{person.name}</h3>
         <p className="text-xs font-medium text-muted-foreground">{person.role ?? t.teamMembers.noRoleSet}</p>
+        <span className="mt-2 inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/10">
+          {workspaceRole ? t.teamMembers.workspaceRoleLabels[workspaceRole] : t.teamMembers.noWorkspaceAccess}
+        </span>
       </div>
 
       <div className="mt-4">
@@ -545,15 +599,24 @@ const MemberCard = ({
 
 export const TeamMembersPage = () => {
   const { t } = useLanguage();
-  const { currentProjectId } = useProjectContext();
+  const { currentProjectId, currentWorkspaceId } = useProjectContext();
   const { data: people = [], isLoading: peopleLoading } = usePeople();
+  const { data: workspaceMembers = [], isLoading: workspaceMembersLoading } = useWorkspaceMembers(currentWorkspaceId);
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(currentProjectId);
   const [search, setSearch] = useState('');
   const [availFilter, setAvailFilter] = useState<AvailabilityStatus | 'all'>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
 
-  const isLoading = peopleLoading || tasksLoading;
+  const isLoading = peopleLoading || workspaceMembersLoading || tasksLoading;
+
+  const workspaceMembersByEmail = useMemo(() => {
+    const byEmail = new Map<string, WorkspacePermissionRole>();
+    for (const member of workspaceMembers) {
+      byEmail.set(member.email.toLowerCase(), member.role);
+    }
+    return byEmail;
+  }, [workspaceMembers]);
 
   const byAssignee = useMemo(() => {
     const counts = new Map<string, number>();
@@ -581,7 +644,7 @@ export const TeamMembersPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {showAdd && <AddPersonModal onClose={() => setShowAdd(false)} t={t} />}
+      {showAdd && <AddPersonModal currentWorkspaceId={currentWorkspaceId} onClose={() => setShowAdd(false)} t={t} />}
       {editPerson && <EditPersonModal person={editPerson} onClose={() => setEditPerson(null)} t={t} />}
 
       <header className="px-8 py-6 border-b border-border">
@@ -655,6 +718,7 @@ export const TeamMembersPage = () => {
                   onEdit={setEditPerson} 
                   openTaskCount={openTaskCount}
                   level={level}
+                  workspaceRole={person.email ? workspaceMembersByEmail.get(person.email.toLowerCase()) ?? null : null}
                   t={t} 
                 />
               );

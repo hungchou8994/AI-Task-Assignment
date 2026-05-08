@@ -1,6 +1,7 @@
 import uuid
 import pytest
 from fastapi.testclient import TestClient
+from app.models import User
 
 
 def unique() -> str:
@@ -124,4 +125,44 @@ def test_create_project_workspace_not_found_404(client):
 def test_list_projects_workspace_not_found_404(client):
     """GET /api/workspaces/{random-uuid}/projects → 404."""
     resp = client.get(f"/api/workspaces/{uuid.uuid4()}/projects")
+    assert resp.status_code == 404
+
+
+def test_list_workspace_members_includes_owner_role(client):
+    workspace = make_workspace(client)
+
+    resp = client.get(f"/api/workspaces/{workspace['id']}/members")
+
+    assert resp.status_code == 200
+    members = resp.json()
+    assert len(members) == 1
+    assert members[0]["email"] == "test@example.com"
+    assert members[0]["role"] == "owner"
+
+
+def test_add_workspace_member_assigns_requested_role(client):
+    workspace = make_workspace(client)
+    user = User(email=f"member-{unique()}@example.com", hashed_password="hashed")
+    client.db.add(user)
+    client.db.commit()
+
+    resp = client.post(
+        f"/api/workspaces/{workspace['id']}/members",
+        json={"email": user.email, "role": "admin"},
+    )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["email"] == user.email
+    assert data["role"] == "admin"
+
+
+def test_add_workspace_member_rejects_unknown_user(client):
+    workspace = make_workspace(client)
+
+    resp = client.post(
+        f"/api/workspaces/{workspace['id']}/members",
+        json={"email": "missing@example.com", "role": "member"},
+    )
+
     assert resp.status_code == 404

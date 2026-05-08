@@ -1,5 +1,12 @@
 import { api } from './client';
-import type { Workspace, WorkspaceCreate, Project, ProjectCreate } from '../types';
+import type {
+  Workspace,
+  WorkspaceCreate,
+  WorkspaceMember,
+  WorkspaceMemberCreate,
+  Project,
+  ProjectCreate,
+} from '../types';
 
 export async function fetchWorkspaces(): Promise<Workspace[]> {
   return api.get<Workspace[]>('/api/workspaces');
@@ -22,3 +29,9 @@ export async function createProject(
 
 export const fetchMyWorkspaceRole = (workspaceId: string) =>
   api.get<{ role: string }>(`/api/workspaces/${workspaceId}/my-role`);
+
+export const fetchWorkspaceMembers = (workspaceId: string) =>
+  api.get<WorkspaceMember[]>(`/api/workspaces/${workspaceId}/members`);
+
+export const addWorkspaceMember = (workspaceId: string, data: WorkspaceMemberCreate) =>
+  api.post<WorkspaceMember>(`/api/workspaces/${workspaceId}/members`, data);

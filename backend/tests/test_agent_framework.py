@@ -1128,3 +1128,60 @@ class TestExtractionTools:
         assert deps.finalized.source_summary == "依頼からタスクを1件抽出しました"
         assert len(deps.finalized.tasks) == 1
         assert deps.finalized.tasks[0].title == "ログイン不具合を調査"
+
+
+class TestGeminiModelClientConfig:
+    def test_gemini_model_uses_api_key_client_by_default(self, monkeypatch):
+        from app.ai.agent.models import gemini as gemini_module
+        from app.ai.agent.models.gemini import GeminiModel
+
+        calls = []
+
+        def fake_client(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(gemini_module.genai, "Client", fake_client)
+
+        GeminiModel(api_key="test-key", model="gemini-test")
+
+        assert calls == [{"api_key": "test-key"}]
+
+    def test_gemini_model_uses_vertexai_client_when_enabled(self, monkeypatch):
+        from app.ai.agent.models import gemini as gemini_module
+        from app.ai.agent.models.gemini import GeminiModel
+
+        calls = []
+
+        def fake_client(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(gemini_module.genai, "Client", fake_client)
+
+        GeminiModel(
+            model="gemini-test",
+            vertexai=True,
+            project="my-project",
+            location="us-central1",
+        )
+
+        assert calls == [
+            {"vertexai": True, "project": "my-project", "location": "us-central1"}
+        ]
+
+    def test_gemini_model_uses_vertexai_api_key_mode(self, monkeypatch):
+        from app.ai.agent.models import gemini as gemini_module
+        from app.ai.agent.models.gemini import GeminiModel
+
+        calls = []
+
+        def fake_client(**kwargs):
+            calls.append(kwargs)
+            return object()
+
+        monkeypatch.setattr(gemini_module.genai, "Client", fake_client)
+
+        GeminiModel(api_key="vertex-key", model="gemini-test", vertexai=True)
+
+        assert calls == [{"vertexai": True, "api_key": "vertex-key"}]

@@ -119,6 +119,21 @@ export interface Person {
   created_at: string;
 }
 
+export type WorkspacePermissionRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer';
+
+export interface WorkspaceMember {
+  workspace_id: string;
+  user_id: string;
+  email: string;
+  role: WorkspacePermissionRole;
+  created_at: string;
+}
+
+export interface WorkspaceMemberCreate {
+  email: string;
+  role: Extract<WorkspacePermissionRole, 'admin' | 'member'>;
+}
+
 export interface TaskCreate {
   title: string;
   project_id: string;

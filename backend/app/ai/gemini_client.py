@@ -48,9 +48,28 @@ def call_gemini(
     Raises ValueError if GEMINI_API_KEY is not set or Gemini returns invalid schema.
     """
     settings = get_settings()
-    if not settings.gemini_api_key:
-        raise ValueError("GEMINI_API_KEY not configured")
-    client = genai.Client(api_key=settings.gemini_api_key)
+    use_vertexai = settings.gemini_vertexai or settings.google_genai_use_vertexai
+    if use_vertexai:
+        if settings.gemini_vertex_use_api_key:
+            if not settings.gemini_api_key:
+                raise ValueError("GEMINI_API_KEY not configured")
+            client = genai.Client(vertexai=True, api_key=settings.gemini_api_key)
+        else:
+            project = settings.gemini_vertex_project or settings.google_cloud_project
+            location = (
+                settings.gemini_vertex_location
+                or settings.google_cloud_location
+                or "us-central1"
+            )
+            if not project:
+                raise ValueError(
+                    "Vertex AI Gemini requires GEMINI_VERTEX_PROJECT or GOOGLE_CLOUD_PROJECT"
+                )
+            client = genai.Client(vertexai=True, project=project, location=location)
+    else:
+        if not settings.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY not configured")
+        client = genai.Client(api_key=settings.gemini_api_key)
     resp = client.models.generate_content(
         model=settings.gemini_model,
         contents=user_prompt,  # type: ignore[arg-type]  # SDK accepts str|list[Part] at runtime

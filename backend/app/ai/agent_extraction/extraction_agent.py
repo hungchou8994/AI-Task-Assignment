@@ -80,6 +80,34 @@ def _build_extraction_agent() -> Agent:
                 base_url=settings.openai_base_url or None,
             )
 
+        use_vertexai = settings.gemini_vertexai or settings.google_genai_use_vertexai
+        if use_vertexai:
+            if settings.gemini_vertex_use_api_key:
+                if not settings.gemini_api_key:
+                    raise ValueError("GEMINI_API_KEY not configured")
+                return GeminiModel(
+                    api_key=settings.gemini_api_key,
+                    model=settings.gemini_model,
+                    vertexai=True,
+                )
+
+            project = settings.gemini_vertex_project or settings.google_cloud_project
+            location = (
+                settings.gemini_vertex_location
+                or settings.google_cloud_location
+                or "us-central1"
+            )
+            if not project:
+                raise ValueError(
+                    "Vertex AI Gemini requires GEMINI_VERTEX_PROJECT or GOOGLE_CLOUD_PROJECT"
+                )
+            return GeminiModel(
+                model=settings.gemini_model,
+                vertexai=True,
+                project=project,
+                location=location,
+            )
+
         if not settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY not configured")
         return GeminiModel(
@@ -203,9 +231,13 @@ async def run_autonomous_extraction_async(
     # The agent signals completion via finalize_extraction, which builds
     # the ExtractionResult from DB ground truth and stores it in deps.finalized.
     if not deps.finalized:
+        error_detail = ""
+        final_response = getattr(result, "final_response", None)
+        if final_response and final_response.content.strip():
+            error_detail = f" Last model error: {final_response.content.strip()}"
         raise RuntimeError(
             "[ExtractionAgent] agent loop ended without calling finalize_extraction. "
-            "Check the agent logs for details."
+            f"Check the agent logs for details.{error_detail}"
         )
 
     logger.info(
@@ -259,9 +291,13 @@ def run_autonomous_extraction_sync(
     )
 
     if not deps.finalized:
+        error_detail = ""
+        final_response = getattr(result, "final_response", None)
+        if final_response and final_response.content.strip():
+            error_detail = f" Last model error: {final_response.content.strip()}"
         raise RuntimeError(
             "[ExtractionAgent] agent loop ended without calling finalize_extraction. "
-            "Check the agent logs for details."
+            f"Check the agent logs for details.{error_detail}"
         )
 
     logger.info(

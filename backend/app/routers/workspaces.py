@@ -19,6 +19,8 @@ from app.services.workspace_bootstrap import ensure_default_workspace_for_user
 from app.schemas import (
     WorkspaceCreate,
     WorkspaceResponse,
+    WorkspaceMemberCreate,
+    WorkspaceMemberResponse,
     ProjectCreate,
     ProjectResponse,
     LabelCreate,
@@ -113,6 +115,67 @@ def list_projects(
 ):
     ensure_workspace_access(workspace_id, current_user, db, min_role="viewer")
     return db.scalars(select(Project).where(Project.workspace_id == workspace_id)).all()
+
+
+@router.get("/{workspace_id}/members", response_model=list[WorkspaceMemberResponse])
+def list_workspace_members(
+    workspace_id: UUID,
+    db: DbDep,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    ensure_workspace_access(workspace_id, current_user, db, min_role="viewer")
+    rows = db.execute(
+        select(WorkspaceMembership, User)
+        .join(User, User.id == WorkspaceMembership.user_id)
+        .where(WorkspaceMembership.workspace_id == workspace_id)
+        .order_by(User.email.asc())
+    ).all()
+    return [
+        WorkspaceMemberResponse(
+            workspace_id=membership.workspace_id,
+            user_id=membership.user_id,
+            email=user.email,
+            role=membership.role,
+            created_at=membership.created_at,
+        )
+        for membership, user in rows
+    ]
+
+
+@router.post(
+    "/{workspace_id}/members", response_model=WorkspaceMemberResponse, status_code=201
+)
+def add_workspace_member(
+    workspace_id: UUID,
+    payload: WorkspaceMemberCreate,
+    db: DbDep,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    ensure_workspace_access(workspace_id, current_user, db, min_role="admin")
+    email = payload.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email))
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = db.get(WorkspaceMembership, (workspace_id, user.id))
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="User is already a workspace member")
+
+    membership = WorkspaceMembership(
+        workspace_id=workspace_id,
+        user_id=user.id,
+        role=payload.role,
+    )
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+    return WorkspaceMemberResponse(
+        workspace_id=membership.workspace_id,
+        user_id=membership.user_id,
+        email=user.email,
+        role=membership.role,
+        created_at=membership.created_at,
+    )
 
 
 @router.post(

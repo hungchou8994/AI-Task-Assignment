@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
     gemini_model: str = "gemini-2.5-flash-lite"
     gemini_temperature: float = 0.2
+    gemini_vertexai: bool = Field(default=False, alias="GEMINI_VERTEXAI")
+    gemini_vertex_use_api_key: bool = Field(
+        default=False,
+        alias="GEMINI_VERTEX_USE_API_KEY",
+    )
+    gemini_vertex_project: str = Field(default="", alias="GEMINI_VERTEX_PROJECT")
+    gemini_vertex_location: str = Field(default="", alias="GEMINI_VERTEX_LOCATION")
+    google_genai_use_vertexai: bool = Field(
+        default=False,
+        alias="GOOGLE_GENAI_USE_VERTEXAI",
+    )
+    google_cloud_project: str = Field(default="", alias="GOOGLE_CLOUD_PROJECT")
+    google_cloud_location: str = Field(default="", alias="GOOGLE_CLOUD_LOCATION")
 
     # ------------------------------------------------------------------ #
     # OpenAI-compatible AI                                               #
