@@ -595,7 +595,9 @@ def _clear_existing(db) -> None:
         (Organization, "organizations"),
         (Person, "people"),
     ]:
-        count = db.query(model).delete()
+        # synchronize_session=False skips in-memory session sync which can
+        # silently skip rows when the session holds pending objects.
+        count = db.query(model).delete(synchronize_session=False)
         print(f"  Deleted {count} {label}.")
     db.commit()
 
