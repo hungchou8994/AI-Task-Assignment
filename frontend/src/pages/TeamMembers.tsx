@@ -30,6 +30,7 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
   const [bio, setBio] = useState('');
   const [skills, setSkills] = useState('');
   const [availability, setAvailability] = useState<AvailabilityStatus | ''>('');
+  const [maxCapacity, setMaxCapacity] = useState(8);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +46,7 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
           .map((s) => s.trim())
           .filter(Boolean),
         availability: (availability as AvailabilityStatus) || null,
+        max_capacity: maxCapacity,
       },
       { onSuccess: onClose },
     );
@@ -119,6 +121,19 @@ function AddPersonModal({ onClose, t }: { onClose: () => void; t: ReturnType<typ
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
+                {t.teamMembers.maxCapacity}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={maxCapacity}
+                onChange={(e) => setMaxCapacity(Math.max(1, Math.min(100, Number(e.target.value))))}
+                className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
                 {t.teamMembers.skills} (comma-separated)
               </label>
               <input
@@ -176,6 +191,7 @@ function EditPersonModal({ person, onClose, t }: { person: Person; onClose: () =
   const [availability, setAvailability] = useState<AvailabilityStatus | ''>(
     person.availability ?? '',
   );
+  const [maxCapacity, setMaxCapacity] = useState(person.max_capacity ?? 8);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
@@ -190,6 +206,7 @@ function EditPersonModal({ person, onClose, t }: { person: Person; onClose: () =
         .map((s) => s.trim())
         .filter(Boolean),
       availability: (availability as AvailabilityStatus) || null,
+      max_capacity: maxCapacity,
     };
     updatePerson.mutate({ id: person.id, data }, { onSuccess: onClose });
   }
@@ -263,6 +280,19 @@ function EditPersonModal({ person, onClose, t }: { person: Person; onClose: () =
                   <option value="on_leave">{t.teamMembers.availabilityOnLeave}</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
+                {t.teamMembers.maxCapacity}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={maxCapacity}
+                onChange={(e) => setMaxCapacity(Math.max(1, Math.min(100, Number(e.target.value))))}
+                className="w-full border border-border bg-background text-foreground px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+              />
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono block mb-1">
@@ -379,10 +409,10 @@ function avatarColor(name: string) {
 
 type LoadLevel = 'low' | 'medium' | 'high';
 
-function loadLevel(taskCount: number, availability: string | null): LoadLevel {
+function loadLevel(taskCount: number, availability: string | null, maxCapacity: number): LoadLevel {
   if (availability === 'on_leave') return 'low';
-  if (taskCount >= 7) return 'high';
-  if (taskCount >= 4) return 'medium';
+  if (taskCount >= maxCapacity * 0.875) return 'high';
+  if (taskCount >= maxCapacity * 0.5) return 'medium';
   return 'low';
 }
 
@@ -401,7 +431,7 @@ const MemberCard = ({
   key?: React.Key;
 }) => {
   const avail = person.availability ? getAvailabilityConfig(person.availability, t) : null;
-  const cap = Math.min(100, (openTaskCount / 8) * 100);
+  const cap = Math.min(100, (openTaskCount / (person.max_capacity || 8)) * 100);
 
   return (
     <div className="bg-card border border-border p-5 hover:bg-muted/20 transition-colors group">
@@ -617,7 +647,7 @@ export const TeamMembersPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((person) => {
               const openTaskCount = byAssignee.get(person.id) ?? 0;
-              const level = loadLevel(openTaskCount, person.availability);
+              const level = loadLevel(openTaskCount, person.availability, person.max_capacity || 8);
               return (
                 <MemberCard 
                   key={person.id} 

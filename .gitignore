@@ -28,3 +28,22 @@ evals/
 **/__pycache__/
 **/.pytest_cache/
 *.pyo
+
+# Python virtual environments
+.venv/
+**/.venv/
+venv/
+**/venv/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

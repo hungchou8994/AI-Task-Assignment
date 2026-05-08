@@ -5,6 +5,7 @@ import type {
   TaskUpdate,
   TaskAssigneeRecommendationsResponse,
   TaskSourceLink,
+  TaskComment,
 } from '../types';
 import { api } from './client';
 
@@ -26,3 +27,15 @@ export const fetchTaskSources = (taskId: string) =>
   api.get<TaskSourceLink[]>(`/api/tasks/${taskId}/sources`);
 export const fetchTaskAssigneeRecommendations = (taskId: string) =>
   api.get<TaskAssigneeRecommendationsResponse>(`/api/tasks/${taskId}/assignee-recommendations`);
+
+export const fetchTaskComments = (taskId: string) =>
+  api.get<TaskComment[]>(`/api/tasks/${taskId}/comments`);
+
+export const createTaskComment = (taskId: string, body: string) =>
+  api.post<TaskComment>(`/api/tasks/${taskId}/comments`, { body });
+
+export const updateTaskComment = (taskId: string, commentId: string, body: string) =>
+  api.put<TaskComment>(`/api/tasks/${taskId}/comments/${commentId}`, { body });
+
+export const deleteTaskComment = (taskId: string, commentId: string) =>
+  api.delete(`/api/tasks/${taskId}/comments/${commentId}`);

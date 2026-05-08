@@ -15,6 +15,7 @@ from app.routers import (
     people,
     task_activity,
     task_candidates,
+    task_comments,
     tasks,
     workspaces,
     projects,
@@ -48,6 +49,7 @@ app.include_router(workspaces.router)
 app.include_router(task_candidates.router)
 app.include_router(feedback_analytics.router)
 app.include_router(task_activity.router)
+app.include_router(task_comments.router)
 app.include_router(projects.router)
 app.include_router(webhooks.router)
 app.include_router(health.router)

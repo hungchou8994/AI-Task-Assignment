@@ -3,8 +3,22 @@
 Usage (from project root):
     docker compose exec api python scripts/seed.py
 
-Demo login:
-    demo@example.com / password123
+Workspace roles:
+    admin  — Priya Raman, Avery Stone
+    member — everyone else
+
+Demo logins (password is 'password123' for all accounts):
+    demo@example.com                    (workspace owner)
+    priya.raman@northstar.example       (workspace admin)
+    avery.stone@northstar.example       (workspace admin)
+    maya.chen@northstar.example         (workspace member)
+    ethan.brooks@northstar.example      (workspace member)
+    noah.williams@northstar.example     (workspace member)
+    sofia.martinez@northstar.example    (workspace member)
+    liam.patel@northstar.example        (workspace member)
+    grace.kim@northstar.example         (workspace member)
+    jordan.lee@northstar.example        (workspace member)
+    olivia.reed@northstar.example       (workspace member)
 """
 
 import sys
@@ -12,6 +26,8 @@ from datetime import date, datetime, timedelta, timezone
 
 # Ensure the app package is importable when run inside the container.
 sys.path.insert(0, "/app")
+
+from sqlalchemy import text  # noqa: E402
 
 from app.auth_utils import hash_password  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
@@ -27,6 +43,7 @@ from app.models import (  # noqa: E402
     TaskActivityAction,
     TaskActivityEvent,
     TaskCandidate,
+    TaskComment,
     TaskPriority,
     TaskStatus,
     User,
@@ -41,6 +58,11 @@ def d(days_from_now: int) -> date:
 
 def updated_at(days_ago: int) -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=days_ago)
+
+
+def ago(days: int = 0, hours: int = 0) -> datetime:
+    """Return a timezone-aware datetime N days and H hours in the past."""
+    return datetime.now(timezone.utc) - timedelta(days=days, hours=hours)
 
 
 WORKSPACE_SPEC = {
@@ -66,86 +88,108 @@ WORKSPACE_SPEC = {
 }
 
 
+# workspace_role: "admin" | "member"
+# Admins can delete any comment. Members can only delete their own.
 PEOPLE = [
     dict(
         name="Maya Chen",
         email="maya.chen@northstar.example",
+        workspace_role="member",
         role="Frontend Engineer",
         skills=["React", "TypeScript", "Design Systems", "Accessibility", "Playwright"],
         bio="Owns the React application shell, component quality, and accessibility standards for customer-facing workflows.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Ethan Brooks",
         email="ethan.brooks@northstar.example",
+        workspace_role="member",
         role="Backend Engineer",
         skills=["Python", "FastAPI", "PostgreSQL", "SQLAlchemy", "API Design"],
         bio="Builds reliable APIs, schema migrations, and data integrity checks for the task management platform.",
         availability=AvailabilityStatus.available,
+        max_capacity=10,
     ),
     dict(
         name="Priya Raman",
         email="priya.raman@northstar.example",
+        workspace_role="admin",
         role="Product Manager",
         skills=["Roadmapping", "Customer Discovery", "Jira", "SQL", "Prioritization"],
         bio="Coordinates product scope, customer feedback, and weekly release planning across engineering and operations.",
         availability=AvailabilityStatus.busy,
+        max_capacity=15,
     ),
     dict(
         name="Noah Williams",
         email="noah.williams@northstar.example",
+        workspace_role="member",
         role="DevOps Engineer",
         skills=["Docker", "AWS", "Terraform", "CI/CD", "Observability"],
         bio="Maintains deployment pipelines, staging infrastructure, alerts, and production readiness reviews.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Sofia Martinez",
         email="sofia.martinez@northstar.example",
+        workspace_role="member",
         role="UX Designer",
         skills=["Figma", "Prototyping", "User Research", "Information Architecture", "UX Writing"],
         bio="Designs task review flows, empty states, and onboarding experiences based on customer research.",
         availability=AvailabilityStatus.available,
+        max_capacity=6,
     ),
     dict(
         name="Liam Patel",
         email="liam.patel@northstar.example",
+        workspace_role="member",
         role="Data Analyst",
         skills=["SQL", "Python", "Tableau", "dbt", "Product Analytics"],
         bio="Builds dashboards for activation, review throughput, AI quality, and operational SLA tracking.",
         availability=AvailabilityStatus.available,
+        max_capacity=10,
     ),
     dict(
         name="Grace Kim",
         email="grace.kim@northstar.example",
+        workspace_role="member",
         role="QA Engineer",
         skills=["Playwright", "Test Planning", "API Testing", "Regression Testing", "Bug Triage"],
         bio="Owns release test plans, regression coverage, and quality gates for the pilot launch.",
         availability=AvailabilityStatus.available,
+        max_capacity=8,
     ),
     dict(
         name="Jordan Lee",
         email="jordan.lee@northstar.example",
+        workspace_role="member",
         role="Customer Success Lead",
         skills=["Onboarding", "Training", "Customer Feedback", "Documentation", "Escalation Management"],
         bio="Runs customer onboarding, collects pilot feedback, and coordinates follow-up actions with product teams.",
         availability=AvailabilityStatus.busy,
+        max_capacity=12,
     ),
     dict(
         name="Avery Stone",
         email="avery.stone@northstar.example",
+        workspace_role="admin",
         role="Security Engineer",
         skills=["Threat Modeling", "Audit Logging", "SOC 2", "Secrets Management", "Access Control"],
         bio="Reviews security controls, data retention policies, and customer-facing compliance commitments.",
         availability=AvailabilityStatus.available,
+        max_capacity=6,
     ),
     dict(
         name="Olivia Reed",
         email="olivia.reed@northstar.example",
+        workspace_role="member",
         role="Technical Writer",
         skills=["Developer Docs", "Release Notes", "API Documentation", "Information Design", "Editing"],
         bio="Creates migration guides, launch notes, and clear product documentation for internal and customer users.",
         availability=AvailabilityStatus.on_leave,
+        max_capacity=5,
     ),
 ]
 
@@ -396,31 +440,209 @@ CANDIDATES_SPEC = [
 ]
 
 
+# author: a name from PEOPLE (e.g. "Maya Chen")
+# edited=True  → sets edited_at so the "Edited" badge appears in the UI
+COMMENTS_SPEC = [
+    # ----- Add virtualized rendering to the task table -----
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="Maya Chen",
+        body="I've been looking at react-window for this. It handles large lists efficiently and shouldn't break keyboard navigation.",
+        created_days_ago=3,
+    ),
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="Ethan Brooks",
+        body="react-window is the right call. The FixedSizeList API is clean. Watch out: row height must be consistent or we'll need VariableSizeList, which complicates things.",
+        created_days_ago=2,
+        created_hours_ago=6,
+    ),
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="Maya Chen",
+        body="Good point. Locking row height at 56px for now and will revisit if variable heights are needed. Updated the PR description to reflect this decision.",
+        created_days_ago=2,
+        created_hours_ago=4,
+        edited=True,
+        edited_days_ago=1,
+    ),
+    dict(
+        task_title="Add virtualized rendering to the task table",
+        author="Priya Raman",
+        body="Looks good. Make sure keyboard navigation still works end-to-end before we close this — accessibility is a blocker for the pilot.",
+        created_days_ago=1,
+        created_hours_ago=2,
+    ),
+    # ----- Implement pagination for GET /api/tasks -----
+    dict(
+        task_title="Implement pagination for GET /api/tasks",
+        author="Priya Raman",
+        body="Should we use cursor-based or offset-based pagination? Cursor is more robust for live data but offset is simpler for v1.",
+        created_days_ago=4,
+    ),
+    dict(
+        task_title="Implement pagination for GET /api/tasks",
+        author="Ethan Brooks",
+        body="Going with offset for v1 — the data set is bounded and it's simpler to test. Added limit/offset params with total_count in the response envelope. Can migrate to cursor later if needed.",
+        created_days_ago=3,
+        created_hours_ago=8,
+    ),
+    dict(
+        task_title="Implement pagination for GET /api/tasks",
+        author="Maya Chen",
+        body="Works well from the frontend side. total_count lets us show accurate page numbers. Ship it.",
+        created_days_ago=2,
+        created_hours_ago=10,
+    ),
+    # ----- Investigate P99 latency regression on task search -----
+    dict(
+        task_title="Investigate P99 latency regression on task search",
+        author="Ethan Brooks",
+        body="Initial finding: the query plan regressed after the assignee join was added in the last release. The planner is choosing a seq scan on tasks instead of the status index.",
+        created_days_ago=1,
+        created_hours_ago=4,
+    ),
+    dict(
+        task_title="Investigate P99 latency regression on task search",
+        author="Noah Williams",
+        body="Can you share the EXPLAIN ANALYZE output? Also worth checking if autovacuum ran recently — stale statistics can explain plan regressions after a bulk data change.",
+        created_days_ago=0,
+        created_hours_ago=6,
+        edited=True,
+        edited_hours_ago=5,
+    ),
+    dict(
+        task_title="Investigate P99 latency regression on task search",
+        author="Avery Stone",
+        body="While you're in there — confirm the search endpoint doesn't leak cross-workspace task data. The join change is close to the workspace filter clause.",
+        created_days_ago=0,
+        created_hours_ago=3,
+    ),
+    # ----- Review customer data retention commitments -----
+    dict(
+        task_title="Review customer data retention commitments",
+        author="Avery Stone",
+        body="Reviewed the pilot contract. The 90-day window covers source excerpts but is silent on candidate revisions and audit events. Flagged for legal review before sign-off.",
+        created_days_ago=2,
+    ),
+    dict(
+        task_title="Review customer data retention commitments",
+        author="Priya Raman",
+        body="Thanks for the catch. I'll loop in legal today. Can you draft the two open questions so I can attach them to the email thread?",
+        created_days_ago=1,
+        created_hours_ago=8,
+    ),
+    dict(
+        task_title="Review customer data retention commitments",
+        author="Avery Stone",
+        body="Draft sent. Two open items: (1) retention period for candidate revisions, (2) whether audit events are in scope for the 90-day purge or need a separate schedule.",
+        created_days_ago=1,
+        created_hours_ago=4,
+        edited=True,
+        edited_hours_ago=3,
+    ),
+    # ----- Provision a production-like staging environment -----
+    dict(
+        task_title="Provision a production-like staging environment",
+        author="Noah Williams",
+        body="ECS cluster and RDS instance are up. GitHub Actions workflow is wired. First deploy took 4 min — will optimize caching in the next pass.",
+        created_days_ago=5,
+    ),
+    dict(
+        task_title="Provision a production-like staging environment",
+        author="Ethan Brooks",
+        body="Ran the migration suite against staging — all 16 migrations applied cleanly. DB config looks correct.",
+        created_days_ago=4,
+        created_hours_ago=5,
+    ),
+    # ----- Redesign empty states across core pages -----
+    dict(
+        task_title="Redesign empty states across core pages",
+        author="Sofia Martinez",
+        body="Figma frames are ready for review: Dashboard, Tasks list, Team page, and Review Queue. Sharing the link in the design channel.",
+        created_days_ago=6,
+    ),
+    dict(
+        task_title="Redesign empty states across core pages",
+        author="Priya Raman",
+        body="Reviewed the Figma. Dashboard and Tasks look great. Small ask: the Team empty state CTA should say 'Add your first team member' rather than just 'Add Person' — clearer for new users.",
+        created_days_ago=5,
+        created_hours_ago=3,
+    ),
+    dict(
+        task_title="Redesign empty states across core pages",
+        author="Sofia Martinez",
+        body="Updated. Also adjusted the Review Queue empty state — it now explains what the queue is for rather than just saying 'Nothing here yet'.",
+        created_days_ago=4,
+        created_hours_ago=6,
+        edited=True,
+        edited_days_ago=4,
+    ),
+]
+
+
+_ALL_TABLES = [
+    "task_comments",
+    "candidate_approval_events",
+    "candidate_source_spans",
+    "task_candidate_revisions",
+    "task_sources",
+    "sources",
+    "webhook_deliveries",
+    "webhook_subscriptions",
+    "service_identities",
+    "feature_entitlements",
+    "task_dependencies",
+    "task_labels",
+    "labels",
+    "task_estimates",
+    "task_status_history",
+    "task_activity_events",
+    "memory_audit_events",
+    "feedback_events",
+    "task_candidates",
+    "tasks",
+    "projects",
+    "workspace_memberships",
+    "workspaces",
+    "org_memberships",
+    "organizations",
+    "people",
+    "users",
+]
+
+
 def _clear_existing(db) -> None:
-    print("Deleting existing data...")
-    for model, label in [
-        (TaskActivityEvent, "task activity events"),
-        (FeedbackEvent, "feedback events"),
-        (TaskCandidate, "task candidates"),
-        (Task, "tasks"),
-        (Project, "projects"),
-        (WorkspaceMembership, "workspace memberships"),
-        (Workspace, "workspaces"),
-        (OrgMembership, "organization memberships"),
-        (User, "users"),
-        (Organization, "organizations"),
-        (Person, "people"),
-    ]:
-        count = db.query(model).delete()
-        print(f"  Deleted {count} {label}.")
+    """Drop all user data atomically using TRUNCATE … CASCADE.
+
+    TRUNCATE bypasses per-row FK resolution that can cause ORM bulk-delete to
+    stall or skip rows when cascade chains cross tables not in the delete list.
+    RESTART IDENTITY resets all sequences so UUIDs don't carry over.
+    """
+    table_list = ", ".join(_ALL_TABLES)
+    print(f"Truncating {len(_ALL_TABLES)} tables...")
+    db.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
     db.commit()
+    print("  Done.")
 
 
-def _seed_user_and_org(db) -> tuple[User, Organization]:
-    print("\nInserting demo user and organization...")
-    user = User(email="demo@example.com", hashed_password=hash_password("password123"))
-    db.add(user)
+def _seed_users_and_org(db) -> tuple[User, dict[str, User], Organization]:
+    """Create owner account, one User per PEOPLE entry, and the org."""
+    print("\nInserting users and organization...")
+
+    # Workspace owner — not a team-member profile, just an auth account.
+    owner = User(email="demo@example.com", hashed_password=hash_password("password123"))
+    db.add(owner)
     db.flush()
+
+    # One login account per team member.
+    name_to_user: dict[str, User] = {}
+    for spec in PEOPLE:
+        user = User(email=spec["email"], hashed_password=hash_password("password123"))
+        db.add(user)
+        db.flush()
+        name_to_user[spec["name"]] = user
+        print(f"  + {spec['email']}  ({spec['workspace_role']})")
 
     org = Organization(
         name="Northstar Analytics",
@@ -429,21 +651,41 @@ def _seed_user_and_org(db) -> tuple[User, Organization]:
     )
     db.add(org)
     db.flush()
-    db.add(OrgMembership(org_id=org.id, user_id=user.id, role="owner"))
-    return user, org
+
+    db.add(OrgMembership(org_id=org.id, user_id=owner.id, role="owner"))
+    for spec in PEOPLE:
+        org_role = "admin" if spec["workspace_role"] == "admin" else "member"
+        db.add(OrgMembership(org_id=org.id, user_id=name_to_user[spec["name"]].id, role=org_role))
+
+    return owner, name_to_user, org
 
 
-def _seed_workspace_and_projects(db, user: User, org: Organization) -> tuple[Workspace, dict[str, Project]]:
+def _seed_workspace_and_projects(
+    db,
+    owner: User,
+    name_to_user: dict[str, User],
+    org: Organization,
+) -> tuple[Workspace, dict[str, Project]]:
     print("\nInserting workspace and projects...")
     workspace = Workspace(
         name=WORKSPACE_SPEC["name"],
         description=WORKSPACE_SPEC["description"],
         org_id=org.id,
-        owner_id=user.id,
+        owner_id=owner.id,
     )
     db.add(workspace)
     db.flush()
-    db.add(WorkspaceMembership(workspace_id=workspace.id, user_id=user.id, role="owner"))
+
+    # Owner membership.
+    db.add(WorkspaceMembership(workspace_id=workspace.id, user_id=owner.id, role="owner"))
+
+    # One workspace membership per team member using their assigned role.
+    for spec in PEOPLE:
+        db.add(WorkspaceMembership(
+            workspace_id=workspace.id,
+            user_id=name_to_user[spec["name"]].id,
+            role=spec["workspace_role"],
+        ))
 
     key_to_project: dict[str, Project] = {}
     for spec in WORKSPACE_SPEC["projects"]:
@@ -464,7 +706,8 @@ def _seed_people(db) -> dict[str, Person]:
     print("\nInserting people...")
     name_to_person: dict[str, Person] = {}
     for spec in PEOPLE:
-        person = Person(**spec)
+        person_fields = {k: v for k, v in spec.items() if k != "workspace_role"}
+        person = Person(**person_fields)
         db.add(person)
         db.flush()
         name_to_person[spec["name"]] = person
@@ -472,8 +715,9 @@ def _seed_people(db) -> dict[str, Person]:
     return name_to_person
 
 
-def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> None:
+def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> dict[str, Task]:
     print("\nInserting tasks...")
+    title_to_task: dict[str, Task] = {}
     for spec in TASKS_SPEC:
         assignee_name = spec.get("assignee_name")
         task = Task(
@@ -488,6 +732,7 @@ def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str
         )
         db.add(task)
         db.flush()
+        title_to_task[spec["title"]] = task
 
         db.add(
             TaskActivityEvent(
@@ -506,6 +751,8 @@ def _seed_tasks(db, key_to_project: dict[str, Project], name_to_person: dict[str
             task.updated_at = updated_at(days_ago)
 
         print(f"  + [{spec['status'].value:11s}] {task.title[:70]}")
+
+    return title_to_task
 
 
 def _seed_candidates(db, key_to_project: dict[str, Project], name_to_person: dict[str, Person]) -> None:
@@ -541,24 +788,79 @@ def _seed_candidates(db, key_to_project: dict[str, Project], name_to_person: dic
         print(f"  + [pending    ] {candidate.title[:70]}")
 
 
+def _seed_comments(
+    db,
+    title_to_task: dict[str, Task],
+    name_to_user: dict[str, User],
+) -> int:
+    print("\nInserting task comments...")
+    count = 0
+    for spec in COMMENTS_SPEC:
+        task = title_to_task.get(spec["task_title"])
+        if task is None:
+            print(f"  ! Task not found: {spec['task_title'][:60]} — skipping")
+            continue
+
+        author = name_to_user.get(spec["author"])
+        if author is None:
+            print(f"  ! User not found for author '{spec['author']}' — skipping")
+            continue
+
+        created = ago(
+            days=spec.get("created_days_ago", 0),
+            hours=spec.get("created_hours_ago", 0),
+        )
+        edited: datetime | None = None
+        if spec.get("edited"):
+            edited = ago(
+                days=spec.get("edited_days_ago", 0),
+                hours=spec.get("edited_hours_ago", 0),
+            )
+
+        comment = TaskComment(
+            task_id=task.id,
+            author_id=author.id,
+            body=spec["body"],
+            edited_at=edited,
+            created_at=created,
+            updated_at=edited or created,
+        )
+        db.add(comment)
+        count += 1
+
+        edited_label = " [edited]" if edited else ""
+        print(f"  + {spec['author']:<22} on '{task.title[:45]}...'{edited_label}")
+
+    return count
+
+
 def seed() -> None:
     db = SessionLocal()
     try:
         _clear_existing(db)
-        user, org = _seed_user_and_org(db)
-        _workspace, key_to_project = _seed_workspace_and_projects(db, user, org)
+        owner, name_to_user, org = _seed_users_and_org(db)
+        _workspace, key_to_project = _seed_workspace_and_projects(db, owner, name_to_user, org)
         name_to_person = _seed_people(db)
-        _seed_tasks(db, key_to_project, name_to_person)
+        title_to_task = _seed_tasks(db, key_to_project, name_to_person)
         _seed_candidates(db, key_to_project, name_to_person)
+        comment_count = _seed_comments(db, title_to_task, name_to_user)
 
         db.commit()
         print(
-            "\nDone. "
+            f"\nDone. "
             f"1 workspace, {len(WORKSPACE_SPEC['projects'])} projects, "
             f"{len(PEOPLE)} people, {len(TASKS_SPEC)} tasks, "
-            f"{len(CANDIDATES_SPEC)} task candidates inserted."
+            f"{len(CANDIDATES_SPEC)} task candidates, "
+            f"{comment_count} comments inserted."
         )
-        print("Login with demo@example.com / password123")
+        print("\nLogin accounts (password: password123)")
+        print("  Owner  : demo@example.com")
+        admins = [p for p in PEOPLE if p["workspace_role"] == "admin"]
+        members = [p for p in PEOPLE if p["workspace_role"] == "member"]
+        for p in admins:
+            print(f"  Admin  : {p['email']}  ({p['name']})")
+        for p in members:
+            print(f"  Member : {p['email']}  ({p['name']})")
     except Exception:
         db.rollback()
         raise

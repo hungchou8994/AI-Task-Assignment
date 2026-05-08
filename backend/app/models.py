@@ -227,6 +227,7 @@ class Person(Base):
         Enum(AvailabilityStatus, name="availabilitystatus", create_type=False),
         nullable=True,
     )
+    max_capacity = Column(Integer, nullable=False, default=8, server_default="8")
     created_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -884,4 +885,53 @@ class MemoryAuditEvent(Base):
         ),
         Index("ix_memory_audit_events_project_created", "project_id", "created_at"),
         Index("ix_memory_audit_events_action_created", "action", "created_at"),
+    )
+
+
+class TaskComment(Base):
+    __tablename__ = "task_comments"
+
+    # PK — UUID, matches all existing tables
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # task FK — CASCADE delete (comment deleted with task)
+    task_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # author FK — SET NULL on user deletion (per D-05, matches actor_id pattern in TaskActivityEvent)
+    # author_id → users.id (per D-01; NOT people.id — Person is for task assignment, not auth users)
+    author_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # body — Text (matches Task.description, Project.description; no length limit at DB level)
+    body = Column(Text, nullable=False)
+
+    # edited_at — nullable DateTime, NOT a boolean (per D-04; matches archived_at/approved_at convention)
+    # Phase 2 derives is_edited as `edited_at IS NOT NULL`
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+
+    # created_at — timezone-aware, server default
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    # updated_at — set on body edits (optional per agent discretion; include for completeness)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        # Composite index: chronological listing per task (primary query pattern)
+        Index("ix_task_comments_task_id_created_at", "task_id", "created_at"),
+        # Single-column index on author_id (per D-03: every FK gets an index)
+        Index("ix_task_comments_author_id", "author_id"),
     )

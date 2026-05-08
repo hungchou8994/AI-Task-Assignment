@@ -23,7 +23,11 @@ from app.schemas import (
     ProjectResponse,
     LabelCreate,
     LabelResponse,
+    WorkspaceMyRoleResponse,
 )
+
+from app.errors import Forbidden
+
 
 router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 DbDep = Annotated[Session, Depends(get_db)]
@@ -165,3 +169,21 @@ def create_label(
         ) from None
     db.refresh(label)
     return label
+
+
+@router.get("/{workspace_id}/my-role", response_model=WorkspaceMyRoleResponse)
+def get_my_workspace_role(
+    workspace_id: UUID,
+    db: DbDep,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> WorkspaceMyRoleResponse:
+    """Return the current user's role in the workspace."""
+    membership = db.scalar(
+        select(WorkspaceMembership).where(
+            WorkspaceMembership.workspace_id == workspace_id,
+            WorkspaceMembership.user_id == current_user.id,
+        )
+    )
+    if membership is None:
+        raise Forbidden("Not a member of this workspace")
+    return WorkspaceMyRoleResponse(role=membership.role)

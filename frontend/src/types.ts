@@ -80,6 +80,17 @@ export interface Task {
   sources?: Source[];
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id: string | null;
+  author_email: string;
+  body: string;
+  is_edited: boolean;
+  created_at: string;
+  edited_at: string | null;
+}
+
 export interface TaskActivityEvent {
   id: string;
   task_id: string;
@@ -104,6 +115,7 @@ export interface Person {
   skills: string[] | null;
   bio: string | null;
   availability: AvailabilityStatus | null;
+  max_capacity: number;
   created_at: string;
 }
 
@@ -138,6 +150,7 @@ export interface PersonCreate {
   skills?: string[] | null;
   bio?: string | null;
   availability?: AvailabilityStatus | null;
+  max_capacity?: number;
 }
 
 export interface PersonUpdate {
@@ -147,6 +160,7 @@ export interface PersonUpdate {
   skills?: string[] | null;
   bio?: string | null;
   availability?: AvailabilityStatus | null;
+  max_capacity?: number;
 }
 
 export type TaskCandidateStatus = 'pending' | 'approved' | 'rejected';

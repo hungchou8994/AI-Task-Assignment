@@ -65,6 +65,31 @@ export function TasksPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  /**
+   * Build the list of page tokens to render in the pagination bar.
+   * A token is either a page number (number) or an ellipsis sentinel ('…').
+   *
+   * Strategy: always show the first and last page; show a window of ±2
+   * around the current page; fill gaps ≤ 1 item wide rather than using
+   * ellipsis for a single skipped page.
+   */
+  const pageTokens = useMemo((): Array<number | '…'> => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const adjacent = new Set([1, totalPages, page, page - 1, page + 1, page - 2, page + 2]);
+    const pages = Array.from(adjacent)
+      .filter((p) => p >= 1 && p <= totalPages)
+      .sort((a, b) => a - b);
+
+    const tokens: Array<number | '…'> = [];
+    for (let i = 0; i < pages.length; i++) {
+      if (i > 0 && pages[i] - pages[i - 1] > 1) tokens.push('…');
+      tokens.push(pages[i]);
+    }
+    return tokens;
+  }, [page, totalPages]);
   const paginatedIds = useMemo(() => paginated.map((task) => task.id), [paginated]);
   const filteredIds = useMemo(() => filtered.map((task) => task.id), [filtered]);
   const selectedCount = selectedTaskIds.size;
@@ -460,7 +485,7 @@ export function TasksPage() {
           )}
         </div>
 
-        {!isLoading && filtered.length > 0 && (
+        {!isLoading && filtered.length > 0 && totalPages > 1 && (
           <div className="px-6 py-3 border-b border-border flex items-center justify-between bg-background">
             <p className="text-xs font-bold text-muted-foreground tabular-nums">
               {t.tasks.showing} {Math.min((page - 1) * ITEMS_PER_PAGE + 1, filtered.length)}–
@@ -474,23 +499,29 @@ export function TasksPage() {
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const p = i + 1;
-                return (
+              {pageTokens.map((token, idx) =>
+                token === '…' ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-1.5 text-xs text-muted-foreground select-none"
+                  >
+                    …
+                  </span>
+                ) : (
                   <button
-                    key={p}
-                    onClick={() => setPage(p)}
+                    key={token}
+                    onClick={() => setPage(token)}
                     className={cn(
                       'px-3 py-1.5 text-xs font-bold transition-all',
-                      p === page
+                      token === page
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >
-                    {p}
+                    {token}
                   </button>
-                );
-              })}
+                ),
+              )}
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
